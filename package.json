@@ -1,0 +1,28 @@
+{
+  "name": "logger",
+  "version": "1.0.0",
+  "description": "",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsc",
+    "dev": "tsc -w",
+    "bot_server": "node --import dotenv/config dist/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/PashaFG/logger.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/PashaFG/logger/issues"
+  },
+  "homepage": "https://github.com/PashaFG/logger#readme",
+  "dependencies": {
+    "dotenv": "^16.1.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.2.5"
+  }
+}
