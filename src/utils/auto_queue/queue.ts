@@ -1,0 +1,33 @@
+import { LinkedList } from "../linked_list/linked_list.js";
+
+export class Queue {
+  items: LinkedList;
+  constructor() {
+    this.items = new LinkedList();
+  }
+
+  get size() {
+    return this.items.size;
+  }
+
+  enqueque(item: any): this | Promise<unknown> {
+    this.items.addLast(item)
+    return this
+  }
+
+  dequeue(...arg: any[]) {
+    return this.items.removeFirst();
+  }
+
+  isEmpty() {
+    return !this.items.size
+  }
+
+  add(...args: [any]) {
+    return this.enqueque(...args)
+  }
+
+  remove(...args: [any]) {
+    return this.dequeue(...args);
+  }
+}

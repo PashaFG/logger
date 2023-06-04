@@ -1,4 +1,6 @@
-import * as fs from 'node:fs/promises';
+import fs from 'fs/promises';
+import { toNormalDate, toNormalDateAndTime, toNormalTime } from './dates.js'
+import { WriteStream } from 'fs';
 
 async function openDir() {
   try {
@@ -11,55 +13,55 @@ async function openDir() {
 }
 
 async function writeLogs(fileName: string, level: number | string, message: string) {
-  let path: string = `${process.env.LOGGER_PATH_TO_DIRECTORY}/${fileName}`
+  let path: string = `${process.env.LOGGER_PATH_TO_DIRECTORY}/${fileName}.log`
   let errorPath: string = `${process.env.LOGGER_PATH_TO_DIRECTORY}/error.log`
   let finalMessage: string
-  finalMessage = `${message}`
+  finalMessage = `${toNormalTime(new Date())}`
   switch (level) {
     case 1:
     case 'Emergency':
+      finalMessage += ` 1 ${message}`
       fs.appendFile(path, `${finalMessage}\n`)
-      fs.appendFile(errorPath, `${finalMessage}\n`)
-      break
+      return fs.appendFile(errorPath, `${finalMessage}\n`)
 
     case 2:
     case 'Alert':
+      finalMessage += ` 2 ${message}`
       fs.appendFile(path, `${finalMessage}\n`)
-      fs.appendFile(errorPath, `${finalMessage}\n`)
-      break
+      return fs.appendFile(errorPath, `${finalMessage}\n`)
 
     case 3:
     case 'Critical':
+      finalMessage += ` 3 ${message}`
       fs.appendFile(path, `${finalMessage}\n`)
-      fs.appendFile(errorPath, `${finalMessage}\n`)
-      break
+      return fs.appendFile(errorPath, `${finalMessage}\n`)
 
     case 4:
     case 'Error':
+      finalMessage += ` 4 ${message}`
       fs.appendFile(path, `${finalMessage}\n`)
-      fs.appendFile(errorPath, `${finalMessage}\n`)
-      break
+      return fs.appendFile(errorPath, `${finalMessage}\n`)
 
     case 5:
     case 'Warning':
-      fs.appendFile(path, `${finalMessage}\n`)
-      break
+      finalMessage += ` 5 ${message}`
+      return fs.appendFile(path, `${finalMessage}\n`)
 
     case 6:
     case 'Notice':
-      fs.appendFile(path, `${finalMessage}\n`)
-      break
+      finalMessage += ` 6 ${message}`
+      return fs.appendFile(path, `${finalMessage}\n`)
 
     case 7:
     case 'Informational':
     case 'Info':
-      fs.appendFile(path, `${finalMessage}\n`)
-      break
+      finalMessage += ` 7 ${message}`
+      return fs.appendFile(path, `${finalMessage}\n`)
 
     case 8:
     case 'Debug':
-      fs.appendFile(path, `${finalMessage}\n`)
-      break
+      finalMessage += ` 1 ${message}`
+      return fs.appendFile(path, `${finalMessage}\n`)
 
     default:
       return
@@ -75,7 +77,12 @@ async function print() {
       console.log(dirent)
     }
   }
-  writeLogs(`2023-06-03.log`, 1, `${Date.now()}`)
+  console.log('write start')
+  for (let i = 0; i < 10 * 1000; i++) {
+    console.log('write')
+    writeLogs(toNormalDate(new Date()), 1, `test log ${toNormalDateAndTime(new Date())}`)
+  }
+  console.log('write end')
 }
 
 /** TODO Необходима следующая обработка методов:
