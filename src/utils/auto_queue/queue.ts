@@ -10,7 +10,7 @@ export class Queue {
     return this.items.size;
   }
 
-  enqueque(item: any): this | Promise<unknown> {
+  enqueue(item: any): this | Promise<unknown> {
     this.items.addLast(item)
     return this
   }
@@ -24,7 +24,7 @@ export class Queue {
   }
 
   add(...args: [any]) {
-    return this.enqueque(...args)
+    return this.enqueue(...args)
   }
 
   remove(...args: [any]) {

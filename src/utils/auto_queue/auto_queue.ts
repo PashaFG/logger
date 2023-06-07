@@ -9,9 +9,9 @@ export class AutoQueue extends Queue {
     this._stop = false;
   }
 
-  enqueque(action: any) {
+  enqueue(action: any) {
     return new Promise((resolve, reject) => {
-      super.enqueque({ action, resolve, reject })
+      super.enqueue({ action, resolve, reject })
       this.dequeue()
     })
   }

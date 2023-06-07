@@ -1,4 +1,7 @@
 import logger from "./utils/logger/logger.js";
 
-// logger.createFile('2023-06-03')
-logger.openDir()
+let start = performance.now()
+for (let i = 0; i < 10000; i++) {
+  logger.log('logs', `test log written №${i}`)
+}
+console.log('DONE %fms', performance.now() - start)

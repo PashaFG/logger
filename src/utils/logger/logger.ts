@@ -1,88 +1,34 @@
-import fs from 'fs/promises';
+import fs from 'fs';
+import { AutoQueue } from '../auto_queue/auto_queue.js';
 import { toNormalDate, toNormalDateAndTime, toNormalTime } from './dates.js'
-import { WriteStream } from 'fs';
 
-async function openDir() {
-  try {
-    const dir = await fs.opendir('./logs');
+const aQueue = new AutoQueue()
+let filename: string
 
-    return dir
-  } catch (err) {
-    console.error(err);
-  }
-}
+function __log(data: any) {
+  let msg = `${data.time} ${JSON.stringify(data)}\n`;
 
-async function writeLogs(fileName: string, level: number | string, message: string) {
-  let path: string = `${process.env.LOGGER_PATH_TO_DIRECTORY}/${fileName}.log`
-  let errorPath: string = `${process.env.LOGGER_PATH_TO_DIRECTORY}/error.log`
-  let finalMessage: string
-  finalMessage = `${toNormalTime(new Date())}`
-  switch (level) {
-    case 1:
-    case 'Emergency':
-      finalMessage += ` 1 ${message}`
-      fs.appendFile(path, `${finalMessage}\n`)
-      return fs.appendFile(errorPath, `${finalMessage}\n`)
-
-    case 2:
-    case 'Alert':
-      finalMessage += ` 2 ${message}`
-      fs.appendFile(path, `${finalMessage}\n`)
-      return fs.appendFile(errorPath, `${finalMessage}\n`)
-
-    case 3:
-    case 'Critical':
-      finalMessage += ` 3 ${message}`
-      fs.appendFile(path, `${finalMessage}\n`)
-      return fs.appendFile(errorPath, `${finalMessage}\n`)
-
-    case 4:
-    case 'Error':
-      finalMessage += ` 4 ${message}`
-      fs.appendFile(path, `${finalMessage}\n`)
-      return fs.appendFile(errorPath, `${finalMessage}\n`)
-
-    case 5:
-    case 'Warning':
-      finalMessage += ` 5 ${message}`
-      return fs.appendFile(path, `${finalMessage}\n`)
-
-    case 6:
-    case 'Notice':
-      finalMessage += ` 6 ${message}`
-      return fs.appendFile(path, `${finalMessage}\n`)
-
-    case 7:
-    case 'Informational':
-    case 'Info':
-      finalMessage += ` 7 ${message}`
-      return fs.appendFile(path, `${finalMessage}\n`)
-
-    case 8:
-    case 'Debug':
-      finalMessage += ` 1 ${message}`
-      return fs.appendFile(path, `${finalMessage}\n`)
-
-    default:
-      return
-  }
-  // fs.appendFile(path, `${finalMessage}\n`)
-}
-
-async function print() {
-  const dir = await openDir()
-  console.log(dir)
-  if (dir) {
-    for await (const dirent of dir) {
-      console.log(dirent)
+  fs.open(`logs/${data.fileName}.log`, 'a', 0x1a4, function (error, file_handle) {
+    if (!error) {
+      fs.write(file_handle, msg, null, 'utf-8', function (err) {
+        if (err) {
+          console.log(`${data.fileName} ${err}`)
+        }
+        fs.close(file_handle, function () {
+        })
+      })
+    } else {
+      console.log(`${data.fileName} ${error}`)
     }
-  }
-  console.log('write start')
-  for (let i = 0; i < 10 * 1000; i++) {
-    console.log('write')
-    writeLogs(toNormalDate(new Date()), 1, `test log ${toNormalDateAndTime(new Date())}`)
-  }
-  console.log('write end')
+  })
+}
+
+
+
+function log(logPath: string, message: string) {
+  const date = new Date()
+  let _ = ({ ...foo } = {}) => () => new Promise(resolve => setTimeout(resolve, 0, foo));
+  aQueue.enqueue(_({ __log, data: { logPath, fileName: toNormalDate(date), time: toNormalTime(date), message } })).then(({ __log, data }: any | unknown) => __log(data));
 }
 
 /** TODO Необходима следующая обработка методов:
@@ -92,5 +38,5 @@ async function print() {
  * logger.error(), logger.info() ... - для каждого уровня логирования 
  */
 export default {
-  openDir: print
+  log
 }
