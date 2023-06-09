@@ -1,12 +1,12 @@
-import fs from 'fs';
+import fs, { Stats } from 'fs';
 import { AutoQueue } from '../auto_queue/auto_queue.js';
 import { toNormalDate, toNormalDateAndTime, toNormalTime } from './dates.js'
+interface dictionary { [index: string]: number }
+interface logData { [index: string]: string | number | undefined }
 
 const aQueue = new AutoQueue()
-interface LOG_LEVEL_DICTIONARY {
-  [index: string]: number;
-}
-const LOG_LEVEL_DICTIONARY: LOG_LEVEL_DICTIONARY = {
+
+const LOG_LEVEL_DICTIONARY: dictionary = {
   "debug": 1,
   "info": 2,
   "notice": 3,
@@ -16,51 +16,107 @@ const LOG_LEVEL_DICTIONARY: LOG_LEVEL_DICTIONARY = {
   "alert": 7,
   "emergency": 8,
 }
-let loggerConfiguration = {
+const LOGGER_CONFIGURATION = {
   logPath: 'logs',
-  dailyRotationCombinedLogs: true
+  dailyRotationCombinedLogs: true,
+  fileSizeRotation: {
+    enabled: true,
+    limit: 1 // in Mb
+  },
+  fileLimitRotation: {
+    enabled: false,
+    limit: 1000 // count limit rows in file
+  },
+  dirSizeRotation: {
+    enabled: true,
+    limit: 100 // in Mb
+  },
+}
+let fileName: string = toNormalDate(new Date())
+
+async function __changeFileName() {
+  const date = toNormalDate(new Date())
+  const dateAndTime = toNormalDateAndTime(new Date())
+  const files = await fs.promises.readdir('logs')
+  console.log('change fileName')
+  if (files.indexOf(`${date}.log`) >= 0) {
+    fileName = dateAndTime
+  } else {
+    fileName = date
+  }
+}
+
+function __file_size_rotation(fileHandle: number) {
+  if (!LOGGER_CONFIGURATION.dailyRotationCombinedLogs || !LOGGER_CONFIGURATION.fileSizeRotation.enabled) { return }
+  fs.fstat(fileHandle, { bigint: false }, (err, stats) => {
+    if (!err) {
+      if (stats.size > 1024 * 1024 * LOGGER_CONFIGURATION.fileSizeRotation.limit) {
+        __changeFileName()
+        console.log(`change fileName. new: ${fileName}`)
+      }
+    } else {
+      console.log(err)
+    }
+  })
+}
+
+function __file_limit_rotation(fileHandle: number) {
+  if (!LOGGER_CONFIGURATION.dailyRotationCombinedLogs || !LOGGER_CONFIGURATION.fileLimitRotation.enabled) { return }
+  fs.readFile(`${LOGGER_CONFIGURATION.logPath}/${fileName}.log`, 'utf-8', (err, data) => {
+    if (!err) {
+      if (data.split('\n').length > LOGGER_CONFIGURATION.fileLimitRotation.limit) {
+        __changeFileName()
+        console.log(`change fileName. new: ${fileName}`)
+      }
+    } else {
+      console.log(err)
+    }
+  })
+}
+
+function __dir_size_rotation() {
+  if (!LOGGER_CONFIGURATION.dailyRotationCombinedLogs || !LOGGER_CONFIGURATION.dirSizeRotation.enabled) { return }
 }
 
 function __log(data: any) {
   if (data.level === 0 || data.level > 8) {
-    console.error(`Undefined log level: ${data.level}`)
+    console.error(`Undefined log level: ${data.level} `)
     return
   }
-
-  let msg = `${data.time} ${data.level} ${data.message}\n`;
-  let fullFileName: string[] = []
-
-  if (data.level >= 5) {
-    fullFileName.push(`${loggerConfiguration.logPath}/error.log`, `${loggerConfiguration.logPath}/${data.fileName}.log`)
+  let msg: string
+  if (data?.taskId >= 0) {
+    msg = `${data.time} ${data.level} TASK - ${data.taskId} ${data.message} \n`;
   } else {
-    fullFileName.push(`${loggerConfiguration.logPath}/${data.fileName}.log`)
+    msg = `${data.time} ${data.level} ${data.message} \n`;
+  }
+
+  let fullFileName: string[] = []
+  if (data.level >= 5) {
+    fullFileName.push(`${LOGGER_CONFIGURATION.logPath}/error.log`, `${LOGGER_CONFIGURATION.logPath}/${fileName}.log`)
+  } else {
+    fullFileName.push(`${LOGGER_CONFIGURATION.logPath}/${fileName}.log`)
   }
 
   fullFileName.forEach((file) => {
-    fs.open(file, 'a', 0x1a4, function (error, file_handle) {
+    fs.open(file, 'a', 0x1a4, function (error, fileHandle) {
       if (!error) {
-        fs.write(file_handle, msg, null, 'utf-8', function (err) {
+        __file_size_rotation(fileHandle)
+        __file_limit_rotation(fileHandle)
+        __dir_size_rotation()
+        // console.log(fileHandle)
+        fs.write(fileHandle, msg, null, 'utf-8', function (err) {
           if (err) {
-            console.log(`${data.fileName} ${err}`)
+            console.log(`${fileName} ${err}`)
           }
-          fs.close(file_handle, function () {
+          fs.close(fileHandle, function () {
           })
         })
       } else {
-        console.log(`${data.fileName} ${error}`)
+        console.log(`${fileName} ${error}`)
       }
     })
   })
 }
-
-
-
-function log(message: string, logLevel: string | number) {
-  const date = new Date()
-  let _ = ({ ...foo } = {}) => () => new Promise(resolve => setTimeout(resolve, 0, foo));
-  aQueue.enqueue(_({ __log, data: { fileName: toNormalDate(date), time: toNormalTime(date), message, level: (typeof logLevel == 'string') ? LOG_LEVEL_DICTIONARY[logLevel] || 0 : logLevel } })).then(({ __log, data }: any | unknown) => __log(data));
-}
-
 
 /** Уровни логирования:
  * [1] debug — Подробная информация для отладки
@@ -72,14 +128,42 @@ function log(message: string, logLevel: string | number) {
  * [7] alert — Действие требует безотлагательного вмешательства
  * [8] emergency — Система не работает
  */
-function debug(message: string) {
-  log(message, 1)
+
+function log(message: string, logLevel: string | number, taskId?: number) {
+  let data: logData = {
+    fileName: (LOGGER_CONFIGURATION.dailyRotationCombinedLogs) ? fileName : 'combined',
+    time: toNormalTime(new Date()),
+    message,
+    taskId,
+    level: (typeof logLevel == 'string') ? LOG_LEVEL_DICTIONARY[logLevel] || 0 : logLevel
+  }
+  let _ = ({ ...foo } = {}) => () => new Promise(resolve => setTimeout(resolve, 0, foo));
+  aQueue.enqueue(_({ __log, data })).then(({ __log, data }: any | unknown) => __log(data));
 }
-function info(message: string) {
-  log(message, 2)
+
+function debug(message: string, taskId?: number) {
+  log(message, 1, taskId)
 }
-function error(message: string) {
-  log(message, 5)
+function info(message: string, taskId?: number) {
+  log(message, 2, taskId)
+}
+function notice(message: string, taskId?: number) {
+  log(message, 3, taskId)
+}
+function warning(message: string, taskId?: number) {
+  log(message, 4, taskId)
+}
+function error(message: string, taskId?: number) {
+  log(message, 5, taskId)
+}
+function critical(message: string, taskId?: number) {
+  log(message, 6, taskId)
+}
+function alert(message: string, taskId?: number) {
+  log(message, 7, taskId)
+}
+function emergency(message: string, taskId?: number) {
+  log(message, 8, taskId)
 }
 
 /** TODO Необходима следующая обработка методов:
@@ -92,5 +176,10 @@ export default {
   log,
   debug,
   info,
-  error
+  notice,
+  warning,
+  error,
+  critical,
+  alert,
+  emergency
 }
